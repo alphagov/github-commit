@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+
+require 'github_commit'
+require 'json'
+require 'octokit'
+
+$stdout = STDERR
+
+dir, *_ = ARGV
+
+input = JSON.load($stdin.read, nil, { symbolize_names: true, create_additions: false })
+
+path = input.dig(:source, :path)
+unless path
+  puts "[Error] path must be provided on Concourse Resource Type source"
+  exit 1
+end
+
+sha_file = "#{dir}/#{path}/ref"
+access_token = input.dig(:source, :access_token)
+state = input.dig(:params, :status)
+repository = input.dig(:source, :repository)
+
+unless access_token && File.exists?(sha_file) && state && repository
+  missing = []
+  missing << :access_token unless access_token && !access_token.empty?
+  missing << :sha unless File.exists?(sha_file)
+  missing << :state unless state && !state.empty?
+  missing << :repository unless repository && !repository.empty?
+
+  puts("[Error] Missing params: #{ missing.join(', ') }")
+
+  exit 1
+end
+
+sha = File.read(sha_file)
+author = File.read("#{dir}/#{path}/author")
+message = File.read("#{dir}/#{path}/message")
+
+updater = GithubCommit::StatusUpdater.new(
+  client: Octokit::Client.new(access_token: access_token),
+  repo: repository,
+  sha: sha,
+)
+
+def parse_target_url(provided_target)
+  return provided_target if provided_target
+  if ENV.key?("ATC_EXTERNAL_URL")
+    return "#{ENV["ATC_EXTERNAL_URL"]}/teams/#{ENV["BUILD_TEAM_NAME"]}/pipelines/#{ENV["BUILD_PIPELINE_NAME"]}/jobs/#{ENV["BUILD_JOB_NAME"]}/builds/#{ENV["BUILD_NAME"]}"
+  end
+  nil
+end
+
+updater.update_status(
+  status: state,
+  context: input.dig(:params, :context) || "Concourse",
+  target_url: parse_target_url(input.dig(:params, :target_url)),
+  description: input.dig(:params, :description),
+)
+
+output = {
+  version: { ref: sha },
+  metadata: [
+    { name: "author", value: author },
+    { name: "message", value: message },
+    { name: "status", value: state },
+    { name: "commit", value: sha },
+  ]
+}
+
+$stdout = STDOUT
+
+puts output.to_json

@@ -1,0 +1,5 @@
+.bundle
+coverage
+github_commit-*
+tmp
+vendor

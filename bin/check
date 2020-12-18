@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+require 'github_commit'
+require 'json'
+require 'octokit'
+
+input = JSON.load($stdin.read, nil, { symbolize_names: true, create_additions: false })
+
+repo = input.dig(:source, :repository)
+access_token = input.dig(:source, :access_token)
+sha = input.dig(:version, :ref)
+
+service = GithubCommit::CommitsFetcher.new(
+  client: Octokit::Client.new(access_token: access_token),
+  repo: repo,
+)
+
+puts service.commits(sha: sha).to_json

@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+
+require 'github_commit'
+require 'json'
+require 'octokit'
+
+dir, *_ = ARGV
+
+Dir.mkdir(dir) unless File.exists?(dir)
+
+input = JSON.load($stdin.read, nil, { symbolize_names: true, create_additions: false })
+repo = input.dig(:source, :repository)
+access_token = input.dig(:source, :access_token)
+sha = input.dig(:version, :ref)
+
+service = GithubCommit::CommitFetcher.new(
+  client: Octokit::Client.new(access_token: access_token),
+  repo: repo,
+)
+
+writer = GithubCommit::CommitWriter.new(
+  commit: service.fetch_commit(sha: sha),
+  status: service.fetch_status(sha: sha),
+  dir: dir
+)
+
+writer.write_commit!
+
+`git clone https://github.com/#{repo}.git #{dir}/repo`
+`cd #{dir}/repo && git checkout #{sha} --quiet`
+
+puts writer.metadata.to_json
