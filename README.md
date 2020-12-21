@@ -2,7 +2,12 @@
 
 A Concourse resource type for GitHub commits.
 
-The `in` step creates a directory `.github` containing several files:
+The `check` script detects new commits on *any* branch on a GitHub repository.
+This includes commits for work-in-progress branches, but does not include commits
+on any other GitHub repository, such as forks.
+
+The `in` script (used in `get` steps) creates several files corresponding to a
+single commit on any branch of a GitHub repository:
 
 * `ref` contains the sha of the commit
 * `author` contains the name of the committer from GitHub's API
@@ -11,6 +16,13 @@ The `in` step creates a directory `.github` containing several files:
 * `repo` contains the pulled repository checked out at the specified commit
 * `combined_status` contains the full `combined_status` JSON from GitHub's API
 * `commit` contains the full `commit` JSON from GitHub's API
+
+These files should be sufficient to replace some workflows for the popular
+[git resource](https://github.com/concourse/git-resource) provided by Concourse.
+
+The `out` script (used in `put` steps) allows one to add a status to a commit
+in GitHub. For example, you might add a "pending" status at the beginning of
+a build or test run and add a "success" step at the end of the build.
 
 ## Usage
 
@@ -57,15 +69,28 @@ jobs:
       params: {status: error, context: run-tests}
 ```
 
-## `get`
-
-Options:
-
-```
-collaborators_only: Only `verified` commits from collaborators
-```
-
 ## Development
 
 The output of this project is a container image pushed to DockerHub, for use
 in Concourse pipelines as a Resource Type.
+
+Read [Implementing a Resource Type](https://concourse-ci.org/implementing-resource-types.html)
+for an understanding of how this project fits into a Concourse pipeline.
+
+### Run tests
+
+Tests for this project run in [GitHub Actions](https://github.com/alphagov/github-commit/actions),
+but can also be run locally:
+
+```
+bundle exec rubocop
+bundle exec rspec
+```
+
+### Publish
+
+Concourse pipelines pull the resource type as a Docker image; we also publish
+the `lib` part of the project as a gem.
+
+- DockerHub: https://hub.docker.com/r/govuk/github-commit
+- RubyGems: https://rubygems.org/gems/github_commit
