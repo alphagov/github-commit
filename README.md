@@ -92,5 +92,11 @@ bundle exec rspec
 Concourse pipelines pull the resource type as a Docker image; we also publish
 the `lib` part of the project as a gem.
 
+Please consider incrementing the version when making a change. Both artefacts
+are version-controlled by the `VERSION` file, which is used by a
+[Concourse pipeline][] that publishes the artefacts to RubyGems.org and DockerHub.
+
 - DockerHub: https://hub.docker.com/r/govuk/github-commit
 - RubyGems: https://rubygems.org/gems/github_commit
+
+[Concourse pipeline]: https://cd.gds-reliability.engineering/teams/govuk-tools/pipelines/github-commit-resource-type

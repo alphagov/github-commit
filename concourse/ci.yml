@@ -1,0 +1,97 @@
+---
+resource_types:
+  - name: rubygems
+    type: docker-image
+    source:
+      repository: govuk/concourse-rubygems
+      tag: 0.0.3
+
+resources:
+  - icon: github
+    name: github-commit-release
+    source:
+      branch: main
+      uri: https://github.com/alphagov/github-commit
+    type: git
+
+  - name: rubygems
+    type: rubygems
+    source:
+      gem_name: github_commit
+      credentials: |
+        :rubygems_api_key: ((rubygems_api_key))
+
+  - name: github-commit-image
+    type: registry-image
+    icon: docker
+    source:
+      repository: govuk/github-commit
+      username: ((docker-username))
+      password: ((docker-hub-authtoken))
+
+jobs:
+  - name: update-pipeline
+    plan:
+    - get: github-commit-release
+      trigger: true
+    - file: github-commit-release/concourse/ci.yml
+      set_pipeline: github-commit-resource-type
+
+  - name: release-gem
+    plan:
+    - get: github-commit-release
+      trigger: true
+    - task: build-gem
+      config:
+        inputs:
+        - name: github-commit-release
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ruby
+            tag: 2.7.2
+            username: ((docker-username))
+            password: ((docker-hub-authtoken))
+        outputs:
+        - name: dist
+        run:
+          path: /bin/bash
+          args:
+          - '-c'
+          - |
+            set -eu
+            echo "Building gem..."
+            cd github-commit-release
+            gem build github_commit.gemspec --output ../dist/github_commit.gem
+    - put: rubygems
+      params:
+        gem_dir: dist
+        gem_regex: github_commit
+      get_params:
+        skip_download: true
+
+  - name: release-docker-image
+    plan:
+    - get: github-commit-release
+      trigger: true
+    - task: build-image
+      privileged: true
+      params:
+        CONTEXT: github-commit-release
+      config:
+        platform: linux
+        image_resource:
+          type: registry-image
+          source:
+            repository: vito/oci-build-task
+        inputs:
+        - name: github-commit-release
+        outputs:
+        - name: image
+        run:
+          path: build
+    - put: github-commit-image
+      params:
+        image: image/image.tar
+        additional_tags: github-commit-release/VERSION
