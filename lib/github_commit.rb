@@ -4,5 +4,5 @@ require_relative "./github_commit/commit_writer"
 require_relative "./github_commit/status_updater"
 
 module GithubCommit
-  VERSION = "0.1.0".freeze
+  VERSION = File.read(File.join(File.dirname(__FILE__), "../VERSION")).chomp.freeze
 end
