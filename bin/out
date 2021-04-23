@@ -53,7 +53,7 @@ end
 
 updater.update_status(
   status: state,
-  context: input.dig(:params, :context) || "Concourse",
+  context: input.dig(:params, :context) || ENV["BUILD_JOB_NAME"] || "Concourse",
   target_url: parse_target_url(input.dig(:params, :target_url)),
   description: input.dig(:params, :description),
 )
